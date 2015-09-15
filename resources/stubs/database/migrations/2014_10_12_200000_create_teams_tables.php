@@ -16,11 +16,15 @@ class CreateTeamsTables extends Migration
         // Create Teams Table...
         Schema::create('teams', function (Blueprint $table) {
             $table->increments('id');
-            $table->integer('owner_id')->unsigned()->nullable()->index();
+            $table->integer('owner_id')->unsigned()->nullable();
             $table->string('name');
             $table->timestamps();
 
-            $table->foreign('owner_id')->references('id')->on('users')->onDelete('cascade');
+            $table->foreign('owner_id')->references('id')->on('users')->onUpdate('cascade')->onDelete('set null');
+        });
+
+        Schema::table('users', function (Blueprint $table) {
+            $table->foreign('current_team_id')->references('id')->on('teams')->onUpdate('cascade')->onDelete('cascade');
         });
 
         // Create User Teams Intermediate Table...
@@ -30,21 +34,21 @@ class CreateTeamsTables extends Migration
             $table->string('role', 25);
 
             $table->unique(['team_id', 'user_id']);
-            $table->foreign('team_id')->references('id')->on('teams')->onDelete('cascade');
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
+            $table->foreign('team_id')->references('id')->on('teams')->onUpdate('cascade')->onDelete('cascade');
+            $table->foreign('user_id')->references('id')->on('users')->onUpdate('cascade')->onDelete('cascade');
         });
 
         // Create Invitations Table...
         Schema::create('invitations', function (Blueprint $table) {
             $table->increments('id');
-            $table->integer('team_id')->unsigned()->index();
-            $table->integer('user_id')->unsigned()->nullable()->index();
+            $table->integer('team_id')->unsigned();
+            $table->integer('user_id')->unsigned()->nullable();
             $table->string('email');
             $table->string('token', 40)->unique();
             $table->timestamps();
 
-            $table->foreign('team_id')->references('id')->on('teams')->onDelete('cascade');
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
+            $table->foreign('team_id')->references('id')->on('teams')->onUpdate('cascade')->onDelete('cascade');
+            $table->foreign('user_id')->references('id')->on('users')->onUpdate('cascade')->onDelete('cascade');
         });
     }
 
@@ -55,19 +59,12 @@ class CreateTeamsTables extends Migration
      */
     public function down()
     {
-        Schema::table('teams', function (Blueprint $table) {
-            $table->dropForeign('teams_owner_id_foreign');
-        });
-        Schema::table('user_teams', function (Blueprint $table) {
-            $table->dropForeign('user_teams_team_id_foreign');
-            $table->dropForeign('user_teams_user_id_foreign');
-        });
-        Schema::table('invitations', function (Blueprint $table) {
-            $table->dropForeign('invitations_team_id_foreign');
-            $table->dropForeign('invitations_user_id_foreign');
-        });
-        Schema::drop('teams');
-        Schema::drop('user_teams');
         Schema::drop('invitations');
+        Schema::drop('user_teams');
+        Schema::table('users', function(Blueprint $table) {
+            $table->dropForeign('users_current_team_id_foreign');
+        });
+
+        Schema::drop('teams');
     }
 }

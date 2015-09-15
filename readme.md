@@ -16,19 +16,42 @@ Spark is an experimental project primarily intended for building business orient
 
 <a name="installation"></a>
 ## Installation
-
+### New Project
 First, install the Spark installer and make sure that the global Composer `bin` directory is within your system's `$PATH`:
-```
+```sh
 	composer global require "laravel/spark-installer=~1.0"
 ```
+
 Next, create a new Laravel application and install Spark:
-```
+```sh
 	laravel new application
 
 	cd application
 
 	spark install
 ```
+
+### Existing Project
+First, pull in the guzzle and spark packages:
+```sh
+	composer require guzzlehttp/guzzle:^6.0
+	composer require laravel/spark:^0.1.0
+```
+
+Then add the service provider to the `providers` array in `\app\config\app.conf` (don't forget to replace `App` with your namespace):
+```php
+	/**
+	 * Spark Service Providers...
+	 */
+	App\Providers\SparkServiceProvider::class,
+```
+
+Lastly, run the spark installer command:
+```sh
+	php artisan spark:install
+```
+
+### Post-Installation Steps
 After installing Spark, be sure to migrate your database, install the NPM dependencies, and run the `gulp` command. You should also set the `AUTHY_KEY`, `STRIPE_KEY`, and `STRIPE_SECRET` environment variables in your `.env` file.
 
 You may also wish to review the `SparkServiceProvider` class that was installed in your application. This provider is the central location for customizing your Spark installation.

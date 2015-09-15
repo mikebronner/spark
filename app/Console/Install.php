@@ -103,10 +103,7 @@ class Install extends Command
             app_path('Providers/SparkServiceProvider.php')
         );
 
-        copy(
-            SPARK_PATH.'/resources/stubs/config/app.php',
-            config_path('app.php')
-        );
+        $this->setNamespace(app_path('Providers/SparkServiceProvider.php'));
     }
 
     /**
@@ -121,10 +118,22 @@ class Install extends Command
             app_path('Http/Middleware/Authenticate.php')
         );
 
-        copy(
-            SPARK_PATH.'/resources/stubs/app/Http/Middleware/VerifyCsrfToken.php',
-            app_path('Http/Middleware/VerifyCsrfToken.php')
-        );
+        $this->setNamespace(app_path('Http/Middleware/Authenticate.php'));
+
+        if (! file_exists(app_path('Http/Middleware/VerifyCsrfToken.php'))) {
+            copy(
+                SPARK_PATH.'/resources/stubs/app/Http/Middleware/VerifyCsrfToken.php',
+                app_path('Http/Middleware/VerifyCsrfToken.php')
+            );
+
+            $this->setNamespace(app_path('Http/Middleware/VerifyCsrfToken.php'));
+        } else {
+            $originalFile = file_get_contents(app_path('Http/Middleware/VerifyCsrfToken.php'));
+            $newFile = file_get_contents(SPARK_PATH.'/resources/stubs/app/Http/Middleware/VerifyCsrfToken.php');
+            $updatedMiddleware = $this->updateHidden($newFile, $originalFile);
+
+            file_put_contents(app_path('Http/Middleware/VerifyCsrfToken.php'), $updatedMiddleware);
+        }
     }
 
     /**
@@ -134,6 +143,11 @@ class Install extends Command
      */
     protected function installRoutes()
     {
+        copy(
+            app_path('Http/routes.php'),
+            app_path('Http/routes-backup-' . date('Y_m_d_His') . '.php')
+        );
+
         copy(
             SPARK_PATH.'/resources/stubs/app/Http/routes.php',
             app_path('Http/routes.php')
@@ -147,15 +161,25 @@ class Install extends Command
      */
     protected function installModels()
     {
-        copy(
-            SPARK_PATH.'/resources/stubs/app/User.php',
-            app_path('User.php')
-        );
+        $originalUser = file_get_contents(app_path('User.php'));
+        $newUser = file_get_contents(SPARK_PATH.'/resources/stubs/app/User.php');
+
+        $updatedUser = $this->updateHidden($newUser, $originalUser);
+        $updatedUser = $this->updateDates($newUser, $updatedUser);
+        $updatedUser = $this->updateAppends($newUser, $updatedUser);
+        $updatedUser = $this->updateFillable($newUser, $updatedUser);
+        $updatedUser = $this->updateImplements($newUser, $updatedUser);
+        $updatedUser = $this->updateUseIncludes($newUser, $updatedUser);
+        $updatedUser = $this->updateUseStatements($newUser, $updatedUser);
+
+        file_put_contents(app_path('User.php'), $updatedUser);
 
         copy(
             SPARK_PATH.'/resources/stubs/app/Team.php',
             app_path('Team.php')
         );
+
+        $this->setNamespace(app_path('Team.php'));
     }
 
     /**
@@ -166,15 +190,15 @@ class Install extends Command
     protected function installMigrations()
     {
         copy(
-            SPARK_PATH.'/resources/stubs/database/migrations/2014_10_12_000000_create_users_table.php',
-            database_path('migrations/2014_10_12_000000_create_users_table.php')
+            SPARK_PATH.'/resources/stubs/database/migrations/2014_10_12_000000_create_or_update_users_table_for_spark.php',
+            database_path('migrations/2014_10_12_000000_create_or_update_users_table_for_spark.php')
         );
 
         usleep(1000);
 
         copy(
-            SPARK_PATH.'/resources/stubs/database/migrations/2014_10_12_200000_create_teams_tables.php',
-            database_path('migrations/'.date('Y_m_d_His').'_create_teams_tables.php')
+            SPARK_PATH.'/resources/stubs/database/migrations/2014_10_12_200000_create_teams_tables_for_spark.php',
+            database_path('migrations/2014_10_12_200000_create_teams_tables_for_spark.php')
         );
     }
 
@@ -212,8 +236,13 @@ class Install extends Command
      */
     protected function installJavaScript()
     {
-        mkdir(base_path('resources/assets/js'));
-        mkdir(base_path('resources/assets/js/spark'));
+        if (! is_dir('resources/assets/js')) {
+            mkdir(base_path('resources/assets/js'));
+        }
+
+        if (! is_dir('resources/assets/js/spark')) {
+            mkdir(base_path('resources/assets/js/spark'));
+        }
 
         copy(
             SPARK_PATH.'/resources/stubs/resources/assets/js/app.js',
@@ -282,5 +311,212 @@ class Install extends Command
         $this->comment('Post Installation Notes:');
 
         $this->line(PHP_EOL.'     → Set <info>AUTHY_KEY</info>, <info>STRIPE_KEY</info>, & <info>STRIPE_SECRET</info> Environment Variables');
+    }
+
+    /**
+     * Set the correct namespace for a given file.
+     *
+     * @return bool
+     */
+    protected function setNamespace($filePath)
+    {
+        $userFile = file_get_contents(app_path('User.php'));
+        $newFile = file_get_contents($filePath);
+        $matches = [];
+
+        preg_match('/namespace (.*?)\;/ms', $userFile, $matches);
+
+        if (count($matches) < 2) {
+            return false;
+        }
+
+        $namespace = trim($matches[1]);
+        $newFile = str_replace(" App\\", " {$namespace}\\", $newFile);
+        $newFile = str_replace(" App;", " {$namespace};", $newFile);
+        file_put_contents($filePath, $newFile);
+
+        return true;
+    }
+
+
+protected function updateExcept($newFile, $originalFile) {
+    return $this->updateFile('/protected \$except \= \[(.*?)\]\;/sm',
+        '/(.*protected \$except \= \[).*?(\]\;.*)/ms',
+        '/(class VerifyCsrfToken .*?\{\n)/ms',
+        $newFile,
+        $originalFile,
+        "\n        ",
+        ",\n    ",
+        "    /**\n     * The URIs that should be excluded from CSRF verification.\n     *\n     * @var array\n     */\n    protected \$except = [\n        ",
+        "\n    ];\n"
+    );
+}
+
+
+    protected function updateHidden($newFile, $originalFile) {
+        return $this->updateFile('/protected \$appends \= \[(.*?)\]\;/sm',
+            '/(.*protected \$appends \= \[).*?(\]\;.*)/ms',
+            '/(class User extends.*use.*?\;\n)/ms',
+            $newFile,
+            $originalFile,
+            "\n        ",
+            ",\n    ",
+            "    protected \$hidden = [\n        ",
+            "\n    ];\n"
+        );
+    }
+
+    protected function updateDates($newFile, $originalFile)
+    {
+        return $this->updateFile('/protected \$dates \= \[(.*?)\]\;/sm',
+            '/(.*protected \$dates \= \[).*?(\]\;.*)/ms',
+            '/(class User extends.*use.*?\;\n)/ms',
+            $newFile,
+            $originalFile,
+            "\n        ",
+            ",\n    ",
+            "    protected \$dates = [\n        ",
+            "\n    ];\n",
+            ",\n        "
+        );
+    }
+
+    protected function updateAppends($newFile, $originalFile) {
+        return $this->updateFile('/protected \$appends \= \[(.*?)\]\;/sm',
+            '/(.*protected \$appends \= \[).*?(\]\;.*)/ms',
+            '/(class User extends.*use.*?\;\n)/ms',
+            $newFile,
+            $originalFile,
+            "\n        ",
+            ",\n    ",
+            "    protected \$appends = [\n        ",
+            "\n    ];\n",
+            ",\n        "
+        );
+    }
+
+    protected function updateFillable($newFile, $originalFile) {
+        return $this->updateFile('/protected \$fillable \= \[(.*?)\]\;/sm',
+            '/(.*protected \$fillable \= \[).*?(\]\;.*)/ms',
+            '/(class User extends.*use.*?\;\n)/ms',
+            $newFile,
+            $originalFile,
+            "\n        ",
+            ",\n    ",
+            "    protected \$fillable = [\n        ",
+            "\n    ];\n",
+            ",\n        "
+        );
+    }
+
+    protected function updateImplements($newFile, $originalFile) {
+        return $this->updateFile('/class User extends .*? implements (.*?)\{\n/sm',
+            '/(class User extends .*? implements ).*?(\{\n)/ms',
+            '/(class User extends .*?)\n/',
+            $newFile,
+            $originalFile,
+            '',
+            "\n",
+            " implements ",
+            "\n    ];\n",
+            ",\n                                    ",
+            true,
+            ['AuthenticatableContract']
+        );
+    }
+
+    protected function updateUseIncludes($newFile, $originalFile) {
+        return $this->updateFile('/class User .*?use(.*?)\;/sm',
+            '/(class User .*?use).*?(\;)/ms',
+            '/(class User.*?\{)/ms',
+            $newFile,
+            $originalFile,
+            " ",
+            "",
+            "use ",
+            ";\n",
+            ",\n        ",
+            true,
+            ['Authenticatable']
+        );
+    }
+
+    protected function updateUseStatements($newFile, $originalFile) {
+        return $this->updateFile('/\<\?php.*?namespace.*?\;(.*?)\nclass User/sm',
+            '/(\<\?php.*?namespace.*?\;).*?(\nclass User)/ms',
+            '',
+            $newFile,
+            $originalFile,
+            "\n\n",
+            ";\n",
+            '',
+            '',
+            ";\n",
+            true,
+            [],
+            ";"
+        );
+    }
+
+    /**
+     * @param $newUser
+     * @param $matches
+     * @param $originalUser
+     *
+     * @return string
+     */
+    protected function updateFile($detectionRegExp, $replacementRegExp, $insertionRegExp, $newFile, $originalFile,
+        $replacementPrepend = '', $replacementAppend = '', $insertionPrepend = '', $insertionAppend = '', $replacementSeparator = ',',
+        $sortReplacements = false, array $eliminateItems = [], $detectionSeparator = ',')
+    {
+        $matches = [];
+
+        preg_match($detectionRegExp, $newFile, $matches);
+
+        if (count($matches) === 2) {
+            $newItems = array_map('trim', explode($detectionSeparator, $matches[1]));
+
+            preg_match($detectionRegExp, $originalFile, $matches);
+
+            if (! count($matches)) {
+                if ($sortReplacements) {
+                    $newItems = $this->sortArray($newItems);
+                }
+
+                $items = $insertionPrepend . implode($replacementSeparator, array_filter(array_unique($newItems))) . $insertionAppend;
+                return preg_replace($insertionRegExp, "$1{$items}", $originalFile);
+            }
+
+            $originalItems = array_map('trim', explode($detectionSeparator, $matches[1]));
+            $items = array_merge($originalItems, $newItems);
+            $items = array_filter(array_unique($items));
+
+            foreach ($eliminateItems as $eliminateItem) {
+                if (($key = array_search($eliminateItem, $items)) !== false) {
+                    unset($items[$key]);
+                }
+            }
+
+            if ($sortReplacements) {
+                $newItems = $this->sortArray($newItems);
+            }
+
+            $items = $replacementPrepend . implode($replacementSeparator, $items) . $replacementAppend;
+            return preg_replace($replacementRegExp, "$1{$items}$2", $originalFile);
+        }
+
+        return $originalFile;
+    }
+
+    /**
+     * @param $sortReplacements
+     *
+     * @return mixed
+     */
+    protected function sortArray(array $array)
+    {
+        natcasesort($array);
+
+        return $array;
     }
 }

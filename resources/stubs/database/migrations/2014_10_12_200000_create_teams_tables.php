@@ -23,6 +23,7 @@ class CreateTeamsTables extends Migration
             $table->foreign('owner_id')->references('id')->on('users')->onUpdate('cascade')->onDelete('set null');
         });
 
+        // Add Foreign Key Constraint to Users Table...
         Schema::table('users', function (Blueprint $table) {
             $table->foreign('current_team_id')->references('id')->on('teams')->onUpdate('cascade')->onDelete('cascade');
         });
@@ -61,6 +62,7 @@ class CreateTeamsTables extends Migration
     {
         Schema::drop('invitations');
         Schema::drop('user_teams');
+
         Schema::table('users', function(Blueprint $table) {
             $table->dropForeign('users_current_team_id_foreign');
         });

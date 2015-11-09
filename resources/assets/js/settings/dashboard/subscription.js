@@ -292,7 +292,7 @@ Vue.component('spark-settings-subscription-screen', {
          * Get the coupon currently applying to the customer.
          */
         getCoupon: function () {
-            this.$http.get('spark/api/subscriptions/user/coupon')
+            this.$http.get('/spark/api/subscriptions/user/coupon')
                 .success(function (coupon) {
                     this.currentCoupon = coupon;
                 })
@@ -306,7 +306,7 @@ Vue.component('spark-settings-subscription-screen', {
          * Get all of the Spark plans from the API.
          */
         getPlans: function () {
-            this.$http.get('spark/api/subscriptions/plans')
+            this.$http.get('/spark/api/subscriptions/plans')
                 .success(function (plans) {
                     this.plans = plans;
                 });

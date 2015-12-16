@@ -75,6 +75,13 @@ class Spark
     public static $createSubscriptionsWith;
 
     /**
+     * The callback used to create new teams.
+     *
+     * @var callable|null
+     */
+    public static $createTeamsWith;
+
+    /**
      * The callback used to move a user to another plan.
      *
      * @var callable|null
@@ -391,6 +398,17 @@ class Spark
         static::$createSubscriptionsWith = $callback;
     }
 
+    /**
+     * Set a callback to be used to create new teams.
+     *
+     * @param  callable|string  $callback
+     * @return void
+     */
+    public static function createTeamsWith($callback)
+    {
+        static::$createTeamsWith = $callback;
+    }
+    
     /**
      * Set a callback to be used when moving the user to another plan.
      *

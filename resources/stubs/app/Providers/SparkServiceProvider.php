@@ -76,6 +76,11 @@ class SparkServiceProvider extends ServiceProvider
         // Spark::createUsersWith(function (Request $request) {
         //     // Return New User Instance...
         // });
+        
+        // Spark::createTeamsWith(function (Request $request) {
+        //     // Return New Team Instance...
+        // });
+
     }
 
     /**

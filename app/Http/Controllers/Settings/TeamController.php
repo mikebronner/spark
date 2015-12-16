@@ -60,6 +60,10 @@ class TeamController extends Controller
         $team = $this->teams->create(
             $user, ['name' => $request->name]
         );
+        
+        if (Spark::$createTeamsWith) {
+            $team = $this->callCustomUpdater(Spark::$createTeamsWith, $request, [$team]);
+        }
 
         event(new TeamCreated($team));
 
